@@ -1,0 +1,16 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx/client-side-component-manifest.schema.json",
+
+  // CROSS-SOLUTION CONTRACT — DO NOT CHANGE THIS ID.
+  // This componentId is how every consuming solution (Welcome Hero, My Meetings)
+  // resolves the shared @wbd/hub-core library at runtime. It must stay identical
+  // across every published version of this library, forever. Changing it breaks
+  // all deployed consumers.
+  "id": "79f58958-95b7-4500-ba34-d006f351fd47",
+  "alias": "HubCore",
+  "componentType": "Library",
+
+  // The "*" signifies that the version should be taken from the package.json
+  "version": "*",
+  "manifestVersion": 2
+}

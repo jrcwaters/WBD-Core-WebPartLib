@@ -1,0 +1,54 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/package-solution.schema.json",
+  "solution": {
+    "name": "wbd-hub-core-client-side-solution",
+    "id": "b936f572-1387-4233-a3c3-a5f219549cab",
+    "version": "1.0.0.0",
+    "includeClientSideAssets": true,
+    "skipFeatureDeployment": true,
+    "isDomainIsolated": false,
+    "developer": {
+      "name": "WBD",
+      "websiteUrl": "",
+      "privacyUrl": "",
+      "termsOfUseUrl": "",
+      "mpnId": "Undefined-1.21.1"
+    },
+    "metadata": {
+      "shortDescription": {
+        "default": "Shared calendar and mail data layer for WBD intranet homepage web parts."
+      },
+      "longDescription": {
+        "default": "Shared SPFx library (@wbd/hub-core) providing the delegated Microsoft Graph calendar/mail/task data access, sessionStorage caching, types and pure derivations consumed by the Welcome Hero and My Meetings web parts. This is the only solution that declares the delegated Graph permission requests, because SPFx grants them to the shared tenant service principal."
+      },
+      "screenshotPaths": [],
+      "videoUrl": "",
+      "categories": []
+    },
+    "features": [
+      {
+        "title": "wbd-hub-core Feature",
+        "description": "The feature that activates the wbd-hub-core shared library component.",
+        "id": "6950d9e6-6424-443b-a4bc-088970bf9b7c",
+        "version": "1.0.0.0"
+      }
+    ],
+    "webApiPermissionRequests": [
+      {
+        "resource": "Microsoft Graph",
+        "scope": "Calendars.Read"
+      },
+      {
+        "resource": "Microsoft Graph",
+        "scope": "Mail.Read"
+      },
+      {
+        "resource": "Microsoft Graph",
+        "scope": "Tasks.Read"
+      }
+    ]
+  },
+  "paths": {
+    "zippedPackage": "solution/wbd-hub-core.sppkg"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "@microsoft/generator-sharepoint": {
+    "whichFolder": "current",
+    "solutionName": "wbd-hub-core",
+    "environment": "spo",
+    "packageManager": "npm",
+    "componentType": "library",
+    "componentName": "HubCore",
+    "componentDescription": "Shared calendar and mail data layer for WBD intranet homepage web parts",
+    "isCreatingSolution": true,
+    "nodeVersion": "22.22.2",
+    "sdksVersions": {},
+    "version": "1.21.1",
+    "libraryName": "wbd-hub-core",
+    "libraryId": "b936f572-1387-4233-a3c3-a5f219549cab",
+    "solutionShortDescription": "Shared calendar and mail data layer for WBD intranet homepage web parts",
+    "skipFeatureDeployment": true,
+    "isDomainIsolated": false
+  }
+}
