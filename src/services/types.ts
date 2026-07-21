@@ -15,12 +15,20 @@
 export interface ICalendarEvent {
   /** Event subject, or '(no subject)' when Graph returns none. */
   subject: string;
-  /** Start of the event as a UTC-anchored Date. */
+  /** Start of the event as a correct UTC-anchored Date. */
   start: Date;
-  /** End of the event as a UTC-anchored Date. */
+  /** End of the event as a correct UTC-anchored Date. */
   end: Date;
   /** True for all-day events, which are excluded from meeting derivations. */
   isAllDay: boolean;
+  /** True for cancelled meetings, which are excluded from meeting derivations. */
+  isCancelled: boolean;
+  /**
+   * Graph free/busy status: 'free' | 'tentative' | 'busy' | 'oof' |
+   * 'workingElsewhere' | 'unknown'. Events shown as 'free' do not block the
+   * next-free-slot search.
+   */
+  showAs?: string;
   /** Teams/online meeting join URL, when the event has one. */
   joinUrl?: string;
   /** Location display name, when the event has one. */

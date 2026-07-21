@@ -11,8 +11,9 @@ import { ICalendarEvent, IFreeSlot } from './types';
  * runs under the signed-in user's delegated permissions. Every network call is
  * cached in sessionStorage and every failure returns a safe empty value.
  *
- * All calendar times are requested in GMT Standard Time and handled as
- * UTC-anchored Dates.
+ * Calendar reads are requested in GMT Standard Time and converted to correct
+ * UTC-anchored Dates; all day-boundary and working-day maths is done in
+ * Europe/London so behaviour is independent of the browser's timezone.
  */
 
 /** Cache lifetime for the shared calendar/mail/task reads (5 minutes). */
@@ -26,8 +27,11 @@ const TASKS_CACHE_KEY: string = 'hero:taskcount';
 /** Outlook timezone requested for all calendar reads. */
 const OUTLOOK_TIME_ZONE: string = 'GMT Standard Time';
 
-/** Working-day window used by the free-slot derivation. */
-const WORKDAY_START_HOUR: number = 9;
+/** IANA equivalent of OUTLOOK_TIME_ZONE, used for browser-side date maths. */
+const LONDON_TIME_ZONE: string = 'Europe/London';
+
+/** Working-day window (Europe/London) used by the free-slot derivation. */
+const WORKDAY_START_HOUR: number = 8;
 const WORKDAY_END_HOUR: number = 18;
 
 /** Smallest gap the free-slot derivation will report. */
@@ -43,6 +47,8 @@ interface IGraphCollection<T> {
 interface IRawEvent {
   subject?: string;
   isAllDay?: boolean;
+  isCancelled?: boolean;
+  showAs?: string;
   start?: { dateTime: string };
   end?: { dateTime: string };
   onlineMeeting?: { joinUrl?: string } | null;
@@ -58,6 +64,35 @@ interface IRawTaskList {
 interface IRawTask {
   status?: string;
   dueDateTime?: { dateTime?: string } | null;
+}
+
+// --- Europe/London helpers ----------------------------------------------
+
+function pad2(value: number): string {
+  return value < 10 ? `0${value}` : String(value);
+}
+
+/** Offset of London wall-clock time from UTC, in minutes (0 in GMT, 60 in BST). */
+function londonOffsetMinutes(at: Date): number {
+  const utcMs: number = new Date(at.toLocaleString('en-US', { timeZone: 'UTC' })).getTime();
+  const londonMs: number = new Date(at.toLocaleString('en-US', { timeZone: LONDON_TIME_ZONE })).getTime();
+  return Math.round((londonMs - utcMs) / 60000);
+}
+
+/** Today's date in London as YYYY-MM-DD (en-CA formats ISO-style). */
+function londonDateISO(at: Date): string {
+  return at.toLocaleDateString('en-CA', { timeZone: LONDON_TIME_ZONE });
+}
+
+/**
+ * Convert a London wall-clock stamp ('YYYY-MM-DDTHH:MM:SS', no offset) to a
+ * correct UTC-anchored Date, using the given London offset. calendarView with
+ * `Prefer: outlook.timezone` returns wall-clock times without an offset, so
+ * this is what turns them into real instants (and fixes the naive `+ 'Z'`
+ * that is an hour out during British Summer Time).
+ */
+function londonWallToUtc(wallClock: string, offsetMinutes: number): Date {
+  return new Date(new Date(`${wallClock}Z`).getTime() - offsetMinutes * 60000);
 }
 
 // --- calendar ------------------------------------------------------------
@@ -83,23 +118,33 @@ export async function getTodayEvents(client: MSGraphClientV3): Promise<ICalendar
 
   try {
     const now: Date = new Date();
-    const endOfDay: Date = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    const offsetMinutes: number = londonOffsetMinutes(now);
+    const date: string = londonDateISO(now);
+
+    // calendarView interprets offset-less boundaries as UTC, so convert the
+    // London day boundaries to UTC instants before querying.
+    const startUtc: string = londonWallToUtc(`${date}T00:00:00`, offsetMinutes).toISOString();
+    const endUtc: string = londonWallToUtc(`${date}T23:59:59`, offsetMinutes).toISOString();
 
     const res: IGraphCollection<IRawEvent> = await client
       .api('/me/calendarView')
-      .query({ startDateTime: now.toISOString(), endDateTime: endOfDay.toISOString() })
-      .select('subject,start,end,isAllDay,onlineMeeting,location')
+      .query({ startDateTime: startUtc, endDateTime: endUtc })
+      .select('subject,start,end,isAllDay,isCancelled,showAs,onlineMeeting,location')
       .orderby('start/dateTime')
-      .top(15)
+      .top(50)
       .header('Prefer', `outlook.timezone="${OUTLOOK_TIME_ZONE}"`)
       .get();
 
     const events: ICalendarEvent[] = (res.value ?? []).map((e: IRawEvent): ICalendarEvent => {
+      const startWall: string = e.start ? e.start.dateTime.substring(0, 19) : '';
+      const endWall: string = e.end ? e.end.dateTime.substring(0, 19) : '';
       return {
         subject: e.subject ? e.subject : '(no subject)',
-        start: new Date((e.start ? e.start.dateTime : '') + 'Z'),
-        end: new Date((e.end ? e.end.dateTime : '') + 'Z'),
+        start: londonWallToUtc(startWall, offsetMinutes),
+        end: londonWallToUtc(endWall, offsetMinutes),
         isAllDay: !!e.isAllDay,
+        isCancelled: !!e.isCancelled,
+        showAs: e.showAs,
         joinUrl: e.onlineMeeting ? e.onlineMeeting.joinUrl : undefined,
         location: e.location ? e.location.displayName : undefined
       };
@@ -144,9 +189,10 @@ export async function getImportantMailCount(client: MSGraphClientV3): Promise<nu
 // --- tasks due today -----------------------------------------------------
 
 /**
- * Count of open To Do tasks due today, across the user's task lists. This is
- * the most expensive element (one call per list), so consumers typically gate
- * it behind a web-part property to protect first paint.
+ * Count of open To Do tasks due today or overdue, across the user's task
+ * lists (compared in Europe/London). This is the most expensive element (one
+ * call per list), so consumers typically gate it behind a web-part property to
+ * protect first paint.
  */
 export async function getTasksDueTodayCount(client: MSGraphClientV3): Promise<number> {
   const cached: number | undefined = cacheGet<number>(TASKS_CACHE_KEY, CACHE_TTL_MS);
@@ -155,31 +201,33 @@ export async function getTasksDueTodayCount(client: MSGraphClientV3): Promise<nu
   }
 
   try {
+    const today: string = londonDateISO(new Date());
     const lists: IGraphCollection<IRawTaskList> = await client.api('/me/todo/lists').select('id').get();
-    const today: Date = new Date();
+
+    const perListCounts: number[] = await Promise.all(
+      (lists.value ?? []).map((list: IRawTaskList): Promise<number> => {
+        return client
+          .api(`/me/todo/lists/${list.id}/tasks`)
+          .select('dueDateTime,status')
+          .top(100)
+          .get()
+          .then((tasks: IGraphCollection<IRawTask>): number => {
+            return (tasks.value ?? []).filter((task: IRawTask): boolean => {
+              return (
+                task.status !== 'completed' &&
+                !!task.dueDateTime &&
+                !!task.dueDateTime.dateTime &&
+                task.dueDateTime.dateTime.substring(0, 10) <= today
+              );
+            }).length;
+          })
+          .catch((): number => 0);
+      })
+    );
+
     let due: number = 0;
-
-    for (const list of lists.value ?? []) {
-      const tasks: IGraphCollection<IRawTask> = await client
-        .api(`/me/todo/lists/${list.id}/tasks`)
-        .filter("status ne 'completed'")
-        .select('dueDateTime,status')
-        .top(50)
-        .get();
-
-      for (const t of tasks.value ?? []) {
-        if (!t.dueDateTime || !t.dueDateTime.dateTime) {
-          continue;
-        }
-        const d: Date = new Date(t.dueDateTime.dateTime + 'Z');
-        if (
-          d.getFullYear() === today.getFullYear() &&
-          d.getMonth() === today.getMonth() &&
-          d.getDate() === today.getDate()
-        ) {
-          due += 1;
-        }
-      }
+    for (const count of perListCounts) {
+      due += count;
     }
 
     cacheSet(TASKS_CACHE_KEY, due);
@@ -191,47 +239,72 @@ export async function getTasksDueTodayCount(client: MSGraphClientV3): Promise<nu
 
 // --- derivations (no network) --------------------------------------------
 
-/** The first timed meeting still to finish. */
+/** The first timed, non-cancelled meeting still to finish. */
 export function findNextMeeting(events: ICalendarEvent[]): ICalendarEvent | undefined {
   const now: number = Date.now();
-  for (const e of events) {
-    if (!e.isAllDay && e.end.getTime() > now) {
+  const meetings: ICalendarEvent[] = events
+    .filter((e: ICalendarEvent): boolean => !e.isAllDay && !e.isCancelled)
+    .sort((a: ICalendarEvent, b: ICalendarEvent): number => a.start.getTime() - b.start.getTime());
+
+  for (const e of meetings) {
+    if (e.end.getTime() > now) {
       return e;
     }
   }
   return undefined;
 }
 
-/** Number of timed (non-all-day) meetings today, past ones included. */
+/** Number of timed, non-cancelled meetings today, past ones included. */
 export function countMeetingsToday(events: ICalendarEvent[]): number {
-  return events.filter((e: ICalendarEvent): boolean => !e.isAllDay).length;
+  return events.filter((e: ICalendarEvent): boolean => !e.isAllDay && !e.isCancelled).length;
 }
 
 /**
- * Walk today's timed events and return the first gap of at least 30 minutes
- * between now (or the start of the working day) and the end of the working day.
+ * The first gap of at least 30 minutes between now (or the start of the
+ * working day) and the end of the working day, in Europe/London. Events that
+ * are all-day, cancelled, or shown as 'free' do not count as busy.
  */
 export function findNextFreeSlot(events: ICalendarEvent[]): IFreeSlot | undefined {
   const now: Date = new Date();
-  const dayEnd: Date = new Date(now.getFullYear(), now.getMonth(), now.getDate(), WORKDAY_END_HOUR, 0, 0);
-  const dayStart: Date = new Date(now.getFullYear(), now.getMonth(), now.getDate(), WORKDAY_START_HOUR, 0, 0);
-  let cursor: Date = new Date(Math.max(now.getTime(), dayStart.getTime()));
+  const offsetMinutes: number = londonOffsetMinutes(now);
+  const date: string = londonDateISO(now);
+  const dayStart: Date = londonWallToUtc(`${date}T${pad2(WORKDAY_START_HOUR)}:00:00`, offsetMinutes);
+  const dayEnd: Date = londonWallToUtc(`${date}T${pad2(WORKDAY_END_HOUR)}:00:00`, offsetMinutes);
 
-  const timed: ICalendarEvent[] = events
-    .filter((e: ICalendarEvent): boolean => !e.isAllDay)
-    .sort((a: ICalendarEvent, b: ICalendarEvent): number => a.start.getTime() - b.start.getTime());
+  let cursor: number = Math.max(now.getTime(), dayStart.getTime());
+  if (cursor >= dayEnd.getTime()) {
+    return undefined;
+  }
 
-  for (const e of timed) {
-    if (e.start.getTime() - cursor.getTime() >= FREE_SLOT_MINIMUM_MS) {
-      return { start: new Date(cursor.getTime()), end: new Date(e.start.getTime()) };
+  const busy: number[][] = [];
+  for (const e of events) {
+    if (e.isAllDay || e.isCancelled || e.showAs === 'free') {
+      continue;
     }
-    if (e.end.getTime() > cursor.getTime()) {
-      cursor = new Date(e.end.getTime());
+    // Clamp events to today's working-day window.
+    const start: number = Math.max(e.start.getTime(), dayStart.getTime());
+    const end: number = Math.min(e.end.getTime(), dayEnd.getTime());
+    if (end > start) {
+      busy.push([start, end]);
+    }
+  }
+  busy.sort((a: number[], b: number[]): number => a[0] - b[0]);
+
+  for (const interval of busy) {
+    const gapEnd: number = Math.min(interval[0], dayEnd.getTime());
+    if (gapEnd - cursor >= FREE_SLOT_MINIMUM_MS) {
+      return { start: new Date(cursor), end: new Date(gapEnd) };
+    }
+    if (interval[1] > cursor) {
+      cursor = interval[1];
+    }
+    if (cursor >= dayEnd.getTime()) {
+      return undefined;
     }
   }
 
-  if (dayEnd.getTime() - cursor.getTime() >= FREE_SLOT_MINIMUM_MS) {
-    return { start: cursor, end: dayEnd };
+  if (dayEnd.getTime() - cursor >= FREE_SLOT_MINIMUM_MS) {
+    return { start: new Date(cursor), end: new Date(dayEnd.getTime()) };
   }
   return undefined;
 }
