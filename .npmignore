@@ -1,0 +1,21 @@
+!dist
+config
+
+gulpfile.js
+
+release
+src
+temp
+
+# SharePoint solution package is deployed to the app catalogue, not the npm feed
+sharepoint
+*.sppkg
+
+tsconfig.json
+tslint.json
+.eslintrc.js
+
+*.log
+
+.yo-rc.json
+.vscode
