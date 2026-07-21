@@ -43,7 +43,7 @@ Everything a consumer imports from `@wbd/hub-core`:
 | `IFreeSlot` | type | A free gap in the working day |
 | `cacheGet(key, ttlMs)` | function | sessionStorage read, `{ ts, value }` envelope, configurable TTL |
 | `cacheSet(key, value)` | function | sessionStorage write, stamps `ts` |
-| `getTodayEvents(client)` | async | Single cached `calendarView` call — cache key `hero:events`, 5-min TTL. Shared by both web parts |
+| `getTodayEvents(client)` | async | Single cached `calendarView` call — cache key `hero:events`, 5-min TTL. Shared by both web parts. Excludes cancelled meetings and honours `showAs`; Europe/London day boundaries |
 | `getImportantMailCount(client)` | async | High-importance / flagged inbox count |
 | `getTasksDueTodayCount(client)` | async | Open To Do tasks due today |
 | `findNextMeeting(events)` | function | First timed meeting still to finish |
@@ -74,5 +74,5 @@ npm install
 gulp build
 gulp bundle --ship
 gulp package-solution --ship   # -> sharepoint/solution/wbd-hub-core.sppkg
-npm pack                       # -> wbd-hub-core-1.0.0.tgz for the feed
+npm pack                       # -> wbd-hub-core-1.1.0.tgz for the feed
 ```
