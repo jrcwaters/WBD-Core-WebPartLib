@@ -1,9 +1,9 @@
 # @wbd/hub-core
 
 Shared SPFx **library component** holding the calendar/mail data layer for the WBD
-intranet homepage web parts. It is consumed by two separate web-part solutions —
-the existing **Welcome Hero** and the future **My Meetings** — and published to the
-WBD Azure Artifacts npm feed, with consumers pinning a version.
+intranet homepage web parts. It is consumed by separate web-part solutions —
+the **Welcome Hero**, **My Meetings** and **Important Emails** — and published to
+the WBD Azure Artifacts npm feed, with consumers pinning a version.
 
 - **Solution name:** `wbd-hub-core`
 - **npm package:** `@wbd/hub-core`
@@ -42,6 +42,7 @@ Everything a consumer imports from `@wbd/hub-core`:
 | --- | --- | --- |
 | `ICalendarEvent` | type | Today's calendar event (renamed from the hero's `IHeroEvent`) |
 | `IFreeSlot` | type | A free gap in the working day |
+| `IMailMessage` | type | A high-importance / flagged inbox message (the list row shape) |
 | `cacheGet(key, ttlMs)` | function | sessionStorage read, `{ ts, value }` envelope, configurable TTL |
 | `cacheSet(key, value)` | function | sessionStorage write, stamps `ts` |
 | `formatLondonTime(date)` | function | en-GB `HH:MM` in Europe/London (GMT/BST correct) |
@@ -49,6 +50,7 @@ Everything a consumer imports from `@wbd/hub-core`:
 | `formatRelativeDate(input)` | function | Byline date: `Today` / `Yesterday` / weekday / short date |
 | `getTodayEvents(client)` | async | Single cached `calendarView` call — cache key `hero:events`, 5-min TTL. Shared by both web parts. Excludes cancelled meetings and honours `showAs`; Europe/London day boundaries |
 | `getImportantMailCount(client)` | async | High-importance / flagged inbox count |
+| `getImportantMail(client, top?)` | async | High-importance / flagged inbox messages, newest first — cache key `hero:mail`, 5-min TTL. Powers the Important Emails web part |
 | `getTasksDueTodayCount(client)` | async | Open To Do tasks due today |
 | `findNextMeeting(events)` | function | First timed meeting still to finish |
 | `countMeetingsToday(events)` | function | Count of timed meetings today |
@@ -106,5 +108,5 @@ npm install
 gulp build
 gulp bundle --ship
 gulp package-solution --ship   # -> sharepoint/solution/wbd-hub-core.sppkg
-npm pack                       # -> wbd-hub-core-1.2.0.tgz for the feed
+npm pack                       # -> wbd-hub-core-1.3.0.tgz for the feed
 ```

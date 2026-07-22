@@ -42,3 +42,32 @@ export interface IFreeSlot {
   /** End of the free slot. */
   end: Date;
 }
+
+/**
+ * A single high-importance or flagged inbox message, projected from a Microsoft
+ * Graph messages response. This is the list counterpart of
+ * `getImportantMailCount`: the Important Emails web part renders these rows,
+ * while the Welcome Hero keeps using the count.
+ */
+export interface IMailMessage {
+  /** Graph message id (stable key for React lists). */
+  id: string;
+  /** Message subject, or '(no subject)' when Graph returns none. */
+  subject: string;
+  /** Sender display name, falling back to the address, then 'Unknown sender'. */
+  from: string;
+  /** Sender email address, when Graph returns one. */
+  fromAddress?: string;
+  /** Received time as a correct UTC-anchored Date. */
+  received: Date;
+  /** Graph importance: 'low' | 'normal' | 'high'. */
+  importance: string;
+  /** True when the message is flagged for follow-up (flag/flagStatus === 'flagged'). */
+  isFlagged: boolean;
+  /** True when the message has been read. */
+  isRead: boolean;
+  /** Deep link that opens the message in Outlook on the web. */
+  webLink?: string;
+  /** Short plain-text preview of the body, when Graph returns one. */
+  preview?: string;
+}

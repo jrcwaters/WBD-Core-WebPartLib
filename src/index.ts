@@ -8,7 +8,7 @@
 export { HubCore } from './libraries/hubCore/HubCore';
 
 // Types
-export { ICalendarEvent, IFreeSlot } from './services/types';
+export { ICalendarEvent, IFreeSlot, IMailMessage } from './services/types';
 
 // sessionStorage cache helpers ({ ts, value } envelope, configurable TTL)
 export { cacheGet, cacheSet } from './services/cache';
@@ -20,6 +20,7 @@ export { formatLondonTime, formatDuration, formatRelativeDate } from './services
 export {
   getTodayEvents,
   getImportantMailCount,
+  getImportantMail,
   getTasksDueTodayCount,
   findNextMeeting,
   countMeetingsToday,
