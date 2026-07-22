@@ -1,6 +1,6 @@
 import { MSGraphClientV3 } from '@microsoft/sp-http';
 import { cacheGet, cacheSet } from './cache';
-import { ICalendarEvent, IFreeSlot } from './types';
+import { ICalendarEvent, IFreeSlot, IMailMessage } from './types';
 
 /**
  * Delegated Microsoft Graph reads and pure derivations for the intranet
@@ -22,7 +22,11 @@ const CACHE_TTL_MS: number = 5 * 60 * 1000;
 /** sessionStorage keys, shared by every consumer of this library. */
 const EVENTS_CACHE_KEY: string = 'hero:events';
 const MAIL_CACHE_KEY: string = 'hero:mailcount';
+const MAIL_LIST_CACHE_KEY: string = 'hero:mail';
 const TASKS_CACHE_KEY: string = 'hero:taskcount';
+
+/** Largest page of important mail the list reader will request. */
+const MAIL_LIST_MAX: number = 25;
 
 /** Outlook timezone requested for all calendar reads. */
 const OUTLOOK_TIME_ZONE: string = 'GMT Standard Time';
@@ -64,6 +68,19 @@ interface IRawTaskList {
 interface IRawTask {
   status?: string;
   dueDateTime?: { dateTime?: string } | null;
+}
+
+/** Subset of a Graph message this library reads for the important-mail list. */
+interface IRawMessage {
+  id?: string;
+  subject?: string;
+  from?: { emailAddress?: { name?: string; address?: string } } | null;
+  receivedDateTime?: string;
+  importance?: string;
+  flag?: { flagStatus?: string } | null;
+  isRead?: boolean;
+  webLink?: string;
+  bodyPreview?: string;
 }
 
 // --- Europe/London helpers ----------------------------------------------
@@ -183,6 +200,67 @@ export async function getImportantMailCount(client: MSGraphClientV3): Promise<nu
     return count;
   } catch {
     return 0; // never let a mail-count failure break the homepage
+  }
+}
+
+// --- important mail list -------------------------------------------------
+
+/**
+ * The high-importance or flagged inbox messages themselves — the list behind
+ * `getImportantMailCount`. Same advanced-query filter (`ConsistencyLevel:
+ * eventual` + `$count`), newest first. `top` is clamped to [1, 25]; the result
+ * is cached under `hero:mail` (5-min TTL) and every failure returns an empty
+ * array so a mail hiccup never breaks the homepage.
+ *
+ * Ordering is done client-side (Graph rejects combining this `$filter` with a
+ * `$orderby` on a different property), so the call stays a single request.
+ */
+export async function getImportantMail(client: MSGraphClientV3, top: number = 10): Promise<IMailMessage[]> {
+  const cached: IMailMessage[] | undefined = cacheGet<IMailMessage[]>(MAIL_LIST_CACHE_KEY, CACHE_TTL_MS);
+  if (cached) {
+    // `received` is serialised to an ISO string in sessionStorage — rehydrate it.
+    return cached.map((m: IMailMessage): IMailMessage => {
+      return { ...m, received: new Date(m.received as unknown as string) };
+    });
+  }
+
+  try {
+    const limit: number = Math.min(Math.max(Math.floor(top), 1), MAIL_LIST_MAX);
+
+    const res: IGraphCollection<IRawMessage> = await client
+      .api('/me/mailFolders/inbox/messages')
+      .filter("importance eq 'high' or flag/flagStatus eq 'flagged'")
+      .select('subject,from,receivedDateTime,importance,flag,isRead,webLink,bodyPreview')
+      .header('ConsistencyLevel', 'eventual')
+      .count(true)
+      .top(limit)
+      .get();
+
+    const messages: IMailMessage[] = (res.value ?? []).map((m: IRawMessage): IMailMessage => {
+      const emailAddress: { name?: string; address?: string } | undefined = m.from ? m.from.emailAddress : undefined;
+      const name: string | undefined = emailAddress && emailAddress.name ? emailAddress.name : undefined;
+      const address: string | undefined = emailAddress && emailAddress.address ? emailAddress.address : undefined;
+      return {
+        id: m.id ? m.id : '',
+        subject: m.subject ? m.subject : '(no subject)',
+        from: name ?? address ?? 'Unknown sender',
+        fromAddress: address,
+        received: m.receivedDateTime ? new Date(m.receivedDateTime) : new Date(0),
+        importance: m.importance ? m.importance : 'normal',
+        isFlagged: !!(m.flag && m.flag.flagStatus === 'flagged'),
+        isRead: m.isRead !== false,
+        webLink: m.webLink,
+        preview: m.bodyPreview
+      };
+    });
+
+    // Newest first, independent of the order Graph happened to return.
+    messages.sort((a: IMailMessage, b: IMailMessage): number => b.received.getTime() - a.received.getTime());
+
+    cacheSet(MAIL_LIST_CACHE_KEY, messages);
+    return messages;
+  } catch {
+    return []; // never let a mail failure break the homepage
   }
 }
 
