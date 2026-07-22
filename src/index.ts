@@ -13,6 +13,9 @@ export { ICalendarEvent, IFreeSlot } from './services/types';
 // sessionStorage cache helpers ({ ts, value } envelope, configurable TTL)
 export { cacheGet, cacheSet } from './services/cache';
 
+// Shared display formatting (en-GB London time, duration, relative date)
+export { formatLondonTime, formatDuration, formatRelativeDate } from './services/format';
+
 // Delegated Microsoft Graph data access + pure derivations
 export {
   getTodayEvents,

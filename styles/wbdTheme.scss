@@ -1,0 +1,131 @@
+/* ==========================================================================
+ * WBD Hub — shared visual theme (single source of truth)
+ * --------------------------------------------------------------------------
+ * Published from @wbd/hub-core and imported by every Hub web part:
+ *
+ *     @import '~@wbd/hub-core/styles/wbdTheme.scss';
+ *
+ * (the same cross-package SCSS pattern the web parts already use for Fluent's
+ * References.scss). This file emits NO css on its own — it only defines the
+ * brand tokens and the mixins for the shared card / tag / button / accent
+ * treatments, so the three web parts read as one family. Previously each web
+ * part re-declared its own drifted palette (three blues, two yellows); this
+ * replaces all of them.
+ *
+ * Colour values are WCAG 2.2 AA where a contrast pair is noted. Adjust the
+ * hex values here to reprice the whole Hub in one place.
+ * ========================================================================== */
+
+/* --- brand ---------------------------------------------------------------- */
+$wbd-blue: #173a70; // primary brand blue — headings, gradient mid
+$wbd-blue-deep: #0f2850; // deepest blue — gradient base
+$wbd-navy: #002a5c; // hero gradient anchor
+$wbd-action: #0057b8; // action / link blue (6.8:1 on white)
+$wbd-action-dark: #003d82; // action hover / pressed
+
+$wbd-yellow: #ffc72c; // accent — bars, "now" marker
+$wbd-yellow-dark: #d9b400; // accent hairline / focus ring (visible on white)
+$wbd-yellow-soft: #fff4cc; // soft accent wash (pill / hover)
+$wbd-accent-ink: #8a6400; // text on the soft-yellow wash (AA)
+
+/* --- neutrals & surfaces -------------------------------------------------- */
+$wbd-ink: #252423; // primary text (15:1 on white)
+$wbd-ink-soft: #605e5c; // secondary text (7:1 on white)
+$wbd-ink-invert: #ffffff;
+$wbd-line: #e5e3e1; // hairline / divider
+$wbd-card-bg: #ffffff;
+
+/* pill tones for category tags */
+$wbd-tone-firm-bg: #e5edf9;
+$wbd-tone-firm-ink: $wbd-blue;
+$wbd-tone-people-bg: #e7f3ec;
+$wbd-tone-people-ink: #0b6a3c;
+
+/* status tints */
+$wbd-now-tint: #fff9db; // in-progress meeting row wash
+$wbd-banner-tint: #eef3fb; // all-day / info banner wash
+
+/* --- scale ---------------------------------------------------------------- */
+$wbd-radius: 8px; // cards
+$wbd-radius-sm: 4px; // tags, buttons, small chips
+$wbd-radius-pill: 999px; // fully-rounded chips
+$wbd-radius-hero: 12px; // the hero banner shell
+
+$wbd-shadow: 0 1px 2px rgba(0, 0, 0, 0.09), 0 3px 8px rgba(0, 0, 0, 0.12);
+$wbd-shadow-hover: 0 8px 22px rgba(0, 0, 0, 0.18);
+
+$wbd-font: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+
+/* ==========================================================================
+ * Mixins — the shared treatments, defined once.
+ * ========================================================================== */
+
+/** White surface with the standard hairline, radius and resting shadow. */
+@mixin wbd-card {
+  background: $wbd-card-bg;
+  border: 1px solid $wbd-line;
+  border-radius: $wbd-radius;
+  box-shadow: $wbd-shadow;
+}
+
+/** A card that lifts on hover — for whole-card links. */
+@mixin wbd-card-interactive {
+  @include wbd-card;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+
+  &:hover {
+    box-shadow: $wbd-shadow-hover;
+  }
+}
+
+/** Uppercase category pill. Override background/colour for tones. */
+@mixin wbd-tag {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: $wbd-radius-sm;
+  background: $wbd-yellow-soft;
+  color: $wbd-accent-ink;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/** Keyboard focus ring, in the brand yellow so it reads on light and dark. */
+@mixin wbd-focus-ring {
+  &:focus-visible {
+    outline: 2px solid $wbd-yellow-dark;
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}
+
+/** Primary action button (Join / links styled as buttons). */
+@mixin wbd-button {
+  display: inline-block;
+  padding: 8px 18px;
+  border: none;
+  border-radius: $wbd-radius-sm;
+  background: $wbd-action;
+  color: $wbd-ink-invert;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+
+  &:hover {
+    background: $wbd-action-dark;
+    color: $wbd-ink-invert;
+  }
+
+  @include wbd-focus-ring;
+}
+
+/** The yellow accent bar that sits beside a section heading. */
+@mixin wbd-accent-bar($w: 4px, $h: 20px) {
+  width: $w;
+  height: $h;
+  flex-shrink: 0;
+  border-radius: 2px;
+  background: $wbd-yellow;
+}

@@ -14,9 +14,10 @@ WBD Azure Artifacts npm feed, with consumers pinning a version.
 
 ## Scope
 
-This library contains **data access, caching, types and pure derivations only** —
-no React and no web-part-specific composition. `getGlanceData` deliberately stays
-in the Welcome Hero, not here.
+This library contains **data access, caching, shared display formatting, types
+and pure derivations, plus the shared visual theme** — no React and no
+web-part-specific composition. `getGlanceData` deliberately stays in the Welcome
+Hero, not here.
 
 All Microsoft Graph access is **delegated**: every function takes an
 `MSGraphClientV3` supplied by the consuming web part. The library never acquires
@@ -43,6 +44,9 @@ Everything a consumer imports from `@wbd/hub-core`:
 | `IFreeSlot` | type | A free gap in the working day |
 | `cacheGet(key, ttlMs)` | function | sessionStorage read, `{ ts, value }` envelope, configurable TTL |
 | `cacheSet(key, value)` | function | sessionStorage write, stamps `ts` |
+| `formatLondonTime(date)` | function | en-GB `HH:MM` in Europe/London (GMT/BST correct) |
+| `formatDuration(start, end)` | function | Compact British duration, e.g. `1 hr 30 mins` |
+| `formatRelativeDate(input)` | function | Byline date: `Today` / `Yesterday` / weekday / short date |
 | `getTodayEvents(client)` | async | Single cached `calendarView` call — cache key `hero:events`, 5-min TTL. Shared by both web parts. Excludes cancelled meetings and honours `showAs`; Europe/London day boundaries |
 | `getImportantMailCount(client)` | async | High-importance / flagged inbox count |
 | `getTasksDueTodayCount(client)` | async | Open To Do tasks due today |
@@ -67,6 +71,34 @@ const events: ICalendarEvent[] = await getTodayEvents(client);
 const next = findNextMeeting(events);
 ```
 
+## Shared theme
+
+The library also publishes the WBD Hub visual theme, so every web part shares one
+palette and one card / tag / button / accent treatment. Import it in any web
+part's SCSS (the same cross-package pattern used for Fluent's `References.scss`):
+
+```scss
+@import '~@wbd/hub-core/styles/wbdTheme.scss';
+
+.card { @include wbd-card; }
+.join { @include wbd-button; }
+.tag  { @include wbd-tag; }
+```
+
+It defines the brand tokens (`$wbd-blue`, `$wbd-yellow`, ink / line / card,
+radius, shadow) and mixins (`wbd-card`, `wbd-card-interactive`, `wbd-tag`,
+`wbd-button`, `wbd-accent-bar`, `wbd-focus-ring`). It emits no CSS on its own —
+change a value in `styles/wbdTheme.scss` to re-price the whole Hub in one place.
+
+## Tests
+
+The pure logic (timezone/calendar derivations, cache and formatting) is covered
+by a standalone Jest suite (ts-jest, decoupled from the SPFx build):
+
+```bash
+npm test
+```
+
 ## Build
 
 ```bash
@@ -74,5 +106,5 @@ npm install
 gulp build
 gulp bundle --ship
 gulp package-solution --ship   # -> sharepoint/solution/wbd-hub-core.sppkg
-npm pack                       # -> wbd-hub-core-1.1.0.tgz for the feed
+npm pack                       # -> wbd-hub-core-1.2.0.tgz for the feed
 ```
