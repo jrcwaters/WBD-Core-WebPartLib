@@ -30,7 +30,7 @@
         "title": "wbd-hub-core Feature",
         "description": "The feature that activates the wbd-hub-core shared library component.",
         "id": "6950d9e6-6424-443b-a4bc-088970bf9b7c",
-        "version": "1.1.0.0"
+        "version": "1.2.0.0"
       }
     ],
     "webApiPermissionRequests": [

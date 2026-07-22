@@ -15,6 +15,9 @@ temp
 *.sppkg
 .heft
 
+# npm pack artifacts
+*.tgz
+
 # Coverage directory used by tools like istanbul
 coverage
 
